@@ -1,4 +1,4 @@
-name: CustomCsv
+name: BaseData
 modality: vision
 task: classification
 

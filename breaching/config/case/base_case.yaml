@@ -1,7 +1,7 @@
 name: custom
 
 defaults:
-  - data: Custom
+  - data: BaseData
   - impl: default
   - server: honest-but-curious
   - user: local_gradient
