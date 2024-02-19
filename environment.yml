@@ -43,6 +43,7 @@ dependencies:
       - timm
       - ortools
       - kmedoids
+      - pydantic>=1.8.0,<2.0.0
       - k-means-constrained --no-binary 0.6.0 #  this can be a pain ;>
       # You can try a combination of:
       # pip install k-means-constrained --no-cache-dir --no-binary 0.6.0 --no-build-isolation --no-deps --force-reinstall

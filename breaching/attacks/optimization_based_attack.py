@@ -15,6 +15,7 @@ from .base_attack import _BaseAttacker
 from .auxiliaries.regularizers import regularizer_lookup, TotalVariation
 from .auxiliaries.objectives import Euclidean, CosineSimilarity, objective_lookup
 from .auxiliaries.augmentations import augmentation_lookup
+from .attack_info import AttackProgress
 
 import logging
 
@@ -60,7 +61,7 @@ class OptimizationBasedAttacker(_BaseAttacker):
         {(n + ' ' * 8).join([f'{key}: {val}' for key, val in self.cfg.optim.items()])}
         """
 
-    def reconstruct(self, server_payload, shared_data, server_secrets=None, initial_data=None, dryrun=False):
+    def reconstruct(self, server_payload, shared_data, server_secrets=None, initial_data=None, dryrun=False, response=None):
         # Initialize stats module for later usage:
         rec_models, labels, stats = self.prepare_attack(server_payload, shared_data)
         # Main reconstruction loop starts here:
@@ -69,7 +70,7 @@ class OptimizationBasedAttacker(_BaseAttacker):
         try:
             for trial in range(self.cfg.restarts.num_trials):
                 candidate_solutions += [
-                    self._run_trial(rec_models, shared_data, labels, stats, trial, initial_data, dryrun)
+                    self._run_trial(rec_models, shared_data, labels, stats, trial, initial_data, dryrun, response)
                 ]
                 scores[trial] = self._score_trial(candidate_solutions[trial], labels, rec_models, shared_data)
         except KeyboardInterrupt:
@@ -87,7 +88,7 @@ class OptimizationBasedAttacker(_BaseAttacker):
             reconstructed_data["labels"] = server_secrets["ClassAttack"]["all_labels"]
         return reconstructed_data, stats
 
-    def _run_trial(self, rec_model, shared_data, labels, stats, trial, initial_data=None, dryrun=False):
+    def _run_trial(self, rec_model, shared_data, labels, stats, trial, initial_data=None, dryrun=False, response=None):
         """Run a single reconstruction trial."""
 
         # Initialize losses:
@@ -136,6 +137,10 @@ class OptimizationBasedAttacker(_BaseAttacker):
 
                 if dryrun:
                     break
+                if response != None:
+                    channel, token = response
+                    channel.put(token, AttackProgress(current_iteration=iteration,
+                                                      max_iterations=self.cfg.optim.max_iterations))
         except KeyboardInterrupt:
             print(f"Recovery interrupted manually in iteration {iteration}!")
             pass

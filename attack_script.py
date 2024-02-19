@@ -1,14 +1,35 @@
 import torch
 import breaching
 from torchvision import models
+import logging, sys
 
-def setup_attack(cfg, torch_model=None):
+def setup_attack(attack_params=None, cfg=None, torch_model=None):
     device = torch.device(f'cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+
+    if cfg == None:
+        cfg = breaching.get_config()
+
     torch.backends.cudnn.benchmark = cfg.case.impl.benchmark
     setup = dict(device=device, dtype=getattr(torch, cfg.case.impl.dtype))
     print(setup)
 
+    logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)], format='%(message)s')
+    logger = logging.getLogger() 
+
     #setup all customisable parameters
+    if attack_params != None:
+        cfg.case.model = attack_params.model
+        if attack_params.datasetStructure == "csv":
+            cfg.case.data.name = "CustomCsv"
+        else:
+            cfg.case.data.name = "CustomFolders"
+        cfg.case.data.path = attack_params.csvPath
+        cfg.case.data.classes = attack_params.numClasses
+        cfg.case.data.batch_size = attack_params.batchSize
+        cfg.attack.restarts.num_trials = attack_params.numRestarts
+        cfg.attack.optim.step_size = attack_params.stepSize
+        cfg.attack.optim.max_iterations = attack_params.maxIteration
+        cfg.attack.optim.callback = attack_params.callbackInterval
 
     user, server, model, loss_fn = breaching.cases.construct_case(cfg.case, setup)
     attacker = breaching.attacks.prepare_attack(server.model, server.loss, cfg.attack, setup)
@@ -23,14 +44,14 @@ def setup_attack(cfg, torch_model=None):
     
     return setup, user, server, attacker, model, loss_fn
 
-def perform_attack(cfg, setup, user, server, attacker, model, loss_fn):
+def perform_attack(cfg, setup, user, server, attacker, model, loss_fn, response):
     server_payload = server.distribute_payload()
     shared_data, true_user_data = user.compute_local_updates(server_payload)
     breaching.utils.overview(server, user, attacker)
 
     user.plot(true_user_data, saveFile="true_data")
     print("reconstructing attack")
-    reconstructed_user_data, stats = attacker.reconstruct([server_payload], [shared_data], {}, dryrun=cfg.dryrun)
+    reconstructed_user_data, stats = attacker.reconstruct([server_payload], [shared_data], {}, dryrun=cfg.dryrun, response=response)
     user.plot(reconstructed_user_data, saveFile="reconstructed_data")
     return reconstructed_user_data, true_user_data, server_payload
     
@@ -60,8 +81,3 @@ Model is loaded from default values.
 ''')
     model.eval()
     return model
-        
-
-# Total variation regularization needs to be smaller on CIFAR-10:
-# cfg.attack.regularization.total_variation.scale = 1e-3
-# cfg.case.user.user_idx = 1
