@@ -2,6 +2,9 @@ import torch
 import breaching
 from torchvision import models
 import logging, sys
+import base64
+
+from breaching.attacks.attack_info import AttackStatistics, AttackProgress
 
 def setup_attack(attack_params=None, cfg=None, torch_model=None):
     device = torch.device(f'cuda:0') if torch.cuda.is_available() else torch.device('cpu')
@@ -55,10 +58,21 @@ def perform_attack(cfg, setup, user, server, attacker, model, loss_fn, response)
     user.plot(reconstructed_user_data, saveFile="reconstructed_data")
     return reconstructed_user_data, true_user_data, server_payload
     
-def get_metrics(reconstructed_user_data, true_user_data, server_payload, server, cfg, setup):
+def get_metrics(reconstructed_user_data, true_user_data, server_payload, server, cfg, setup, response):
     metrics = breaching.analysis.report(reconstructed_user_data, true_user_data, [server_payload], 
                                      server.model, order_batch=True, compute_full_iip=False, 
                                      cfg_case=cfg.case, setup=setup, compute_lpips=True)
+    stats = AttackStatistics(MSE=metrics.get('mse', 0), SSIM=metrics.get('ssim', 0), PSNR=metrics.get('psnr', 0))
+    channel, token = response
+
+    image_data = None
+    with open("./reconstructed_data.png", 'rb') as image_file:
+        image_data = image_file.read()
+    base64_encoded_data = base64.b64encode(image_data).decode('utf-8')
+
+    iterations = cfg.attack.optim.max_iterations
+    channel.put(token, AttackProgress(current_iteration=iterations, max_iterations=iterations,
+                                      statistics=stats, reconstructed_image=base64_encoded_data))
     return metrics
     
 def check_image_size(model, shape):
