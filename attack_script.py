@@ -75,7 +75,7 @@ def get_metrics(reconstructed_user_data, true_user_data, server_payload, server,
     token, channel = response
 
     image_data = None
-    with open("../reconstructed_data.png", 'rb') as image_file:
+    with open("./reconstructed_data.png", 'rb') as image_file:
         image_data = image_file.read()
     base64_encoded_data = base64.b64encode(image_data).decode('utf-8')
 
