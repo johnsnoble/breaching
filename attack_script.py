@@ -67,7 +67,7 @@ def get_metrics(reconstructed_user_data, true_user_data, server_payload, server,
                                      server.model, order_batch=True, compute_full_iip=False, 
                                      cfg_case=cfg.case, setup=setup, compute_lpips=True)
     stats = AttackStatistics(MSE=metrics.get('mse', 0), SSIM=metrics.get('ssim', 0), PSNR=metrics.get('psnr', 0))
-    channel, token = response
+    token, channel = response
 
     image_data = None
     with open("./reconstructed_data.png", 'rb') as image_file:
