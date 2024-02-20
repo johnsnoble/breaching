@@ -89,7 +89,7 @@ def check_image_size(model, shape):
 
 def buildUploadedModel(model_type, state_dict_path):
     model = None
-    if model_type == "resnet18":
+    if model_type == "ResNet-18":
         model = models.resnet18()
     
     if not model:
