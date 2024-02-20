@@ -9,7 +9,7 @@ class AttackParameters(BaseModel):
     numClasses: int
     batchSize: int
     numRestarts: int
-    stepSize: int
+    stepSize: float
     maxIterations: int
     callbackInterval: int
     ptFilePath: Optional[str]
