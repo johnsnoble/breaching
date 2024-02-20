@@ -1,12 +1,10 @@
 import torch
-# import breaching.breaching as breaching
 import breaching
 from torchvision import models
 import logging, sys
 import base64
 
 from breaching.attacks.attack_info import AttackStatistics, AttackProgress, AttackParameters
-# from breaching.breaching.attacks.attack_info import AttackStatistics, AttackProgress, AttackParameters
 
 def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None):
     device = torch.device(f'cuda:0') if torch.cuda.is_available() else torch.device('cpu')
