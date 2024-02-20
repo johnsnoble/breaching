@@ -14,6 +14,7 @@ class AttackParameters(BaseModel):
     callbackInterval: int
     ptFilePath: Optional[str]
     zipFilePath: Optional[str]
+    budget: int
 
 class AttackStatistics(BaseModel):
     MSE: float = 0
