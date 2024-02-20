@@ -14,15 +14,18 @@ from .language_models import RNNModel, TransformerModel, LinearModel
 from .losses import CausalLoss, MLMLoss, MostlyCausalLoss
 
 
-def construct_model(cfg_model, cfg_data, pretrained=True, **kwargs):
-    if cfg_data.modality == "vision":
-        model = _construct_vision_model(cfg_model, cfg_data, pretrained, **kwargs)
-    elif cfg_data.modality == "text":
-        model = _construct_text_model(cfg_model, cfg_data, pretrained, **kwargs)
+def construct_model(cfg_model, cfg_data, pretrained=True, prebuild_model=None, **kwargs):
+    if prebuild_model is None:
+        if cfg_data.modality == "vision":
+            model = _construct_vision_model(cfg_model, cfg_data, pretrained, **kwargs)
+        elif cfg_data.modality == "text":
+            model = _construct_text_model(cfg_model, cfg_data, pretrained, **kwargs)
+        else:
+            raise ValueError(f"Invalid data modality {cfg_data.modality}")
+        # Save nametag for printouts later:
+        model.name = cfg_model
     else:
-        raise ValueError(f"Invalid data modality {cfg_data.modality}")
-    # Save nametag for printouts later:
-    model.name = cfg_model
+        model = VisionContainer(model)
 
     # Choose loss function according to data and model:
     if "classification" in cfg_data.task:
@@ -165,6 +168,8 @@ def _construct_vision_model(cfg_model, cfg_data, pretrained=True, **kwargs):
     channels = cfg_data.shape[0]
     classes = cfg_data.classes
 
+    print(cfg_data)
+    print(cfg_model)
     if "ImageNet" in cfg_data.name:
         try:
             model = getattr(torchvision.models, cfg_model.lower())()
