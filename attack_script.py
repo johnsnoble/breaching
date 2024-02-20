@@ -28,8 +28,10 @@ def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None
         cfg.case.model = attack_params.model
         if attack_params.datasetStructure == "csv":
             cfg.case.data.name = "CustomCsv"
-        else:
+        elif attack_params.datasetStructure == "folders":
             cfg.case.data.name = "CustomFolders"
+        else:
+            cfg.case.data.name = "CIFAR10"
         cfg.case.data.path = attack_params.csvPath
         cfg.case.data.classes = attack_params.numClasses
         cfg.case.data.batch_size = attack_params.batchSize
