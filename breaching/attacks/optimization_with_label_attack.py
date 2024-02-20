@@ -149,7 +149,7 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
                 if dryrun:
                     break
                 if response != None:
-                    channel, token = response
+                    token, channel = response
                     log.info("puttin")
                     channel.put(token, AttackProgress(current_iteration=iteration,
                                                       max_iterations=self.cfg.optim.max_iterations))
