@@ -138,7 +138,7 @@ class OptimizationBasedAttacker(_BaseAttacker):
                 if dryrun:
                     break
                 if response != None:
-                    channel, token = response
+                    token, channel = response
                     channel.put(token, AttackProgress(current_iteration=iteration,
                                                       max_iterations=self.cfg.optim.max_iterations))
         except KeyboardInterrupt:
