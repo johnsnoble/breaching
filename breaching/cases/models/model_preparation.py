@@ -14,8 +14,8 @@ from .language_models import RNNModel, TransformerModel, LinearModel
 from .losses import CausalLoss, MLMLoss, MostlyCausalLoss
 
 
-def construct_model(cfg_model, cfg_data, pretrained=True, prebuild_model=None, **kwargs):
-    if prebuild_model is None:
+def construct_model(cfg_model, cfg_data, pretrained=True, prebuilt_model=None, **kwargs):
+    if prebuilt_model is None:
         if cfg_data.modality == "vision":
             model = _construct_vision_model(cfg_model, cfg_data, pretrained, **kwargs)
         elif cfg_data.modality == "text":
@@ -25,7 +25,7 @@ def construct_model(cfg_model, cfg_data, pretrained=True, prebuild_model=None, *
         # Save nametag for printouts later:
         model.name = cfg_model
     else:
-        model = VisionContainer(model)
+        model = VisionContainer(prebuilt_model)
 
     # Choose loss function according to data and model:
     if "classification" in cfg_data.task:
