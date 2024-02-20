@@ -1,16 +1,22 @@
 import torch
+# import breaching.breaching as breaching
 import breaching
 from torchvision import models
 import logging, sys
 import base64
 
-from breaching.attacks.attack_info import AttackStatistics, AttackProgress
+from breaching.attacks.attack_info import AttackStatistics, AttackProgress, AttackParameters
+# from breaching.breaching.attacks.attack_info import AttackStatistics, AttackProgress, AttackParameters
 
-def setup_attack(attack_params=None, cfg=None, torch_model=None):
+def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None):
     device = torch.device(f'cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
     if cfg == None:
         cfg = breaching.get_config()
+    print(cfg)
+
+    if torch_model is None:
+        torch_model = buildUploadedModel(attack_params.model, attack_params.ptFilePath)
 
     torch.backends.cudnn.benchmark = cfg.case.impl.benchmark
     setup = dict(device=device, dtype=getattr(torch, cfg.case.impl.dtype))
@@ -36,7 +42,7 @@ def setup_attack(attack_params=None, cfg=None, torch_model=None):
 
     user, server, model, loss_fn = breaching.cases.construct_case(cfg.case, setup)
     attacker = breaching.attacks.prepare_attack(server.model, server.loss, cfg.attack, setup)
-    # breaching.utils.overview(server, user, attacker)
+    breaching.utils.overview(server, user, attacker)
 
 
     if torch_model is not None:
@@ -45,7 +51,7 @@ def setup_attack(attack_params=None, cfg=None, torch_model=None):
     if not check_image_size(model, cfg.case.data.shape):
         raise ValueError("Mismatched dimensions")
     
-    return setup, user, server, attacker, model, loss_fn
+    return cfg, setup, user, server, attacker, model, loss_fn
 
 def perform_attack(cfg, setup, user, server, attacker, model, loss_fn, response):
     server_payload = server.distribute_payload()

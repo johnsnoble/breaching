@@ -21,7 +21,7 @@ class AttackStatistics(BaseModel):
     SSIM: float = 0
 
 class AttackProgress(BaseModel):
-    message_type = "AttackProgress"
+    message_type: str = "AttackProgress"
     current_iteration: int = 0
     max_iterations: int = 0
     current_restart: int = 0
