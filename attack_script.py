@@ -40,7 +40,7 @@ def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None
         cfg.case.data.batch_size = attack_params.batchSize
         cfg.attack.restarts.num_trials = attack_params.numRestarts
         cfg.attack.optim.step_size = attack_params.stepSize
-        cfg.attack.optim.max_iterations = attack_params.maxIteration
+        cfg.attack.optim.max_iterations = attack_params.maxIterations
         cfg.attack.optim.callback = attack_params.callbackInterval
 
     user, server, model, loss_fn = breaching.cases.construct_case(cfg.case, setup)
@@ -100,6 +100,11 @@ def buildUploadedModel(model_type, state_dict_path):
     except RuntimeError as r:
         print(f'''Runtime error loading torch model from file:
 {r}
+Model is loaded from default values.
+''')
+    except FileNotFoundError as f:
+        print(f'''Runtime error loading torch model from file:
+{f}
 Model is loaded from default values.
 ''')
     model.eval()
