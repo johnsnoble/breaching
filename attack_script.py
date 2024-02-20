@@ -33,6 +33,7 @@ def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None
         else:
             cfg.case.data.name = "CIFAR10"
         cfg.case.data.path = attack_params.csvPath
+        cfg.case.data.size = attack_params.datasetSize
         cfg.case.data.classes = attack_params.numClasses
         cfg.case.data.batch_size = attack_params.batchSize
         cfg.attack.restarts.num_trials = attack_params.numRestarts
