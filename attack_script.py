@@ -3,21 +3,33 @@ import breaching.breaching as breaching
 from torchvision import models
 import logging, sys
 import base64
+import zipfile
+import os, shutil
 
 AttackStatistics = breaching.attacks.attack_info.AttackStatistics
 AttackProgress = breaching.attacks.attack_info.AttackProgress
 AttackParameters = breaching.attacks.attack_info.AttackParameters
 
 def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None):
+    
+    print(f'~~~[Attack Params]~~~ {attack_params}')
+    
     device = torch.device(f'cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
     if cfg == None:
         cfg = breaching.get_config()
-    print(cfg)
 
     if torch_model is None:
         torch_model = buildUploadedModel(attack_params.model, attack_params.ptFilePath)
-
+        
+    # unzipped_directory = attack_params.zipFilePath.split('.')[0]
+    print(os.listdir())
+    if (os.path.exists('dataset')):
+        shutil.rmtree('dataset')
+    with zipfile.ZipFile(attack_params.zipFilePath, 'r') as zip_ref:
+        zip_ref.extractall('./dataset')
+    print(os.listdir('dataset'))
+    
     torch.backends.cudnn.benchmark = cfg.case.impl.benchmark
     setup = dict(device=device, dtype=getattr(torch, cfg.case.impl.dtype))
     print(setup)
@@ -28,13 +40,13 @@ def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None
     #setup all customisable parameters
     if attack_params != None:
         cfg.case.model = attack_params.model
-        if attack_params.datasetStructure == "csv":
+        if attack_params.datasetStructure == "CSV":
             cfg.case.data.name = "CustomCsv"
-        elif attack_params.datasetStructure == "folders":
+        elif attack_params.datasetStructure == "Foldered":
             cfg.case.data.name = "CustomFolders"
         else:
             cfg = breaching.get_config(overrides = ["case/data=CIFAR10"])
-        cfg.case.data.path = attack_params.csvPath
+        cfg.case.data.path = 'dataset'
         cfg.case.data.size = attack_params.datasetSize
         cfg.case.data.classes = attack_params.numClasses
         cfg.case.data.batch_size = attack_params.batchSize
@@ -42,8 +54,10 @@ def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None
         cfg.attack.optim.step_size = attack_params.stepSize
         cfg.attack.optim.max_iterations = attack_params.maxIterations
         cfg.attack.optim.callback = attack_params.callbackInterval
+    
+    print(cfg)
 
-    user, server, model, loss_fn = breaching.cases.construct_case(cfg.case, setup)
+    user, server, model, loss_fn = breaching.cases.construct_case(cfg.case, setup, prebuilt_model=torch_model)
     attacker = breaching.attacks.prepare_attack(server.model, server.loss, cfg.attack, setup)
     breaching.utils.overview(server, user, attacker)
 
@@ -70,8 +84,10 @@ def perform_attack(cfg, setup, user, server, attacker, model, loss_fn, response)
 def get_metrics(reconstructed_user_data, true_user_data, server_payload, server, cfg, setup, response):
     metrics = breaching.analysis.report(reconstructed_user_data, true_user_data, [server_payload], 
                                      server.model, order_batch=True, compute_full_iip=False, 
-                                     cfg_case=cfg.case, setup=setup, compute_lpips=True)
-    stats = AttackStatistics(MSE=metrics.get('mse', 0), SSIM=metrics.get('ssim', 0), PSNR=metrics.get('psnr', 0))
+                                     cfg_case=cfg.case, setup=setup, compute_lpips=False)
+    print(metrics)
+    # stats = AttackStatistics(MSE=0, SSIM=0, PSNR=0)
+    stats = AttackStatistics(MSE=metrics.get('mse', 0), SSIM=0, PSNR=metrics.get('psnr', 0))
     token, channel = response
 
     image_data = None
