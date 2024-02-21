@@ -16,14 +16,35 @@ def construct_cfg(attack_params: AttackParameters):
     match attack_params.attack:
         case 'invertinggradients':
             cfg = breaching.get_config()
+            cfg.case.data.partition="unique-class"
+            # default case.model=ResNet18
         case 'analytic':
-            cfg = breaching.get_config(overrides=["case.model=linear", "attack=analytic"])
+            cfg = breaching.get_config(overrides=["attack=analytic", "case.model=linear"])
+            cfg.case.data.partition="balanced"
+            cfg.case.data.default_clients = 50
+            cfg.case.user.num_data_points = 256 # User batch size 
         case 'rgap':
-            cfg = breaching.get_config(overrides=["attack=rgap", "case=1_single_image_small", "case.model=cnn6"])
+            cfg = breaching.get_config(overrides=["attack=rgap", "case.model=cnn6", "case.user.provide_labels=True"])
+            cfg.case.user.num_data_points = 1
+        case 'april_analytic':
+            cfg = breaching.get_config(overrides=["attack=april_analytic", "case.model=vit_small_april"])
+            cfg.case.data.partition="unique-class"
+            cfg.case.user.num_data_points = 1
+            cfg.case.server.pretrained = True
+            cfg.case.user.provide_labels = False
+        case 'deepleakage':
+            cfg = breaching.get_config(overrides=["attack=deepleakage", "case.model=ConvNet"])
+            cfg.case.data.partition="unique-class"
+            cfg.case.user.provide_labels=False 
             
     #setup all customisable parameters
     if attack_params != None:
-        cfg.case.model = attack_params.model
+        if cfg.case.model != attack_params.model:
+            raise TypeError(f"model for given attack does not match. 
+                            Requested model {attack_params.model}. 
+                            Attack model {cfg.case.model}. 
+                            Attack {attack_params.attack}")
+        # cfg.case.model = attack_params.model
         if attack_params.datasetStructure == "CSV":
             cfg.case.data.name = "CustomCsv"
         elif attack_params.datasetStructure == "Foldered":
