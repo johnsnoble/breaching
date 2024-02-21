@@ -10,6 +10,38 @@ AttackStatistics = breaching.attacks.attack_info.AttackStatistics
 AttackProgress = breaching.attacks.attack_info.AttackProgress
 AttackParameters = breaching.attacks.attack_info.AttackParameters
 
+def construct_cfg(attack_params: AttackParameters):
+    cfg = None
+    
+    match attack_params.attack:
+        case 'invertinggradients':
+            cfg = breaching.get_config()
+        case 'analytic':
+            cfg = breaching.get_config(overrides=["case.model=linear", "attack=analytic"])
+        case 'rgap':
+            cfg = breaching.get_config(overrides=["attack=rgap", "case=1_single_image_small", "case.model=cnn6"])
+            
+    #setup all customisable parameters
+    if attack_params != None:
+        cfg.case.model = attack_params.model
+        if attack_params.datasetStructure == "CSV":
+            cfg.case.data.name = "CustomCsv"
+        elif attack_params.datasetStructure == "Foldered":
+            cfg.case.data.name = "CustomFolders"
+        else:
+            cfg = breaching.get_config(overrides = ["case/data=CIFAR10"])
+        cfg.case.data.path = 'dataset'
+        cfg.case.data.size = attack_params.datasetSize
+        cfg.case.data.classes = attack_params.numClasses
+        cfg.case.data.batch_size = attack_params.batchSize
+        cfg.attack.restarts.num_trials = attack_params.numRestarts
+        cfg.attack.optim.step_size = attack_params.stepSize
+        cfg.attack.optim.max_iterations = attack_params.maxIterations
+        cfg.attack.optim.callback = attack_params.callbackInterval
+        
+    return cfg
+            
+
 def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None):
     
     print(f'~~~[Attack Params]~~~ {attack_params}')
@@ -37,23 +69,7 @@ def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None
     logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)], format='%(message)s')
     logger = logging.getLogger() 
 
-    #setup all customisable parameters
-    if attack_params != None:
-        cfg.case.model = attack_params.model
-        if attack_params.datasetStructure == "CSV":
-            cfg.case.data.name = "CustomCsv"
-        elif attack_params.datasetStructure == "Foldered":
-            cfg.case.data.name = "CustomFolders"
-        else:
-            cfg = breaching.get_config(overrides = ["case/data=CIFAR10"])
-        cfg.case.data.path = 'dataset'
-        cfg.case.data.size = attack_params.datasetSize
-        cfg.case.data.classes = attack_params.numClasses
-        cfg.case.data.batch_size = attack_params.batchSize
-        cfg.attack.restarts.num_trials = attack_params.numRestarts
-        cfg.attack.optim.step_size = attack_params.stepSize
-        cfg.attack.optim.max_iterations = attack_params.maxIterations
-        cfg.attack.optim.callback = attack_params.callbackInterval
+    cfg = construct_cfg(attack_params)
     
     print(cfg)
 

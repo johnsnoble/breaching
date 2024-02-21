@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class AttackParameters(BaseModel):
     model: str
+    attack: str = "invertinggradients"
     datasetStructure: str
     csvPath: Optional[str]
     datasetSize: int
