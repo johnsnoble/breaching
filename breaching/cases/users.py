@@ -305,6 +305,7 @@ class UserSingleStep(torch.nn.Module):
             if print_labels:
                 print(label_classes)
         if saveFile:
+            print(f"Saved to {saveFile}.png")
             plt.savefig(f"{saveFile}.png")
             return
         

@@ -22,10 +22,10 @@ def construct_model(cfg_model, cfg_data, pretrained=True, prebuilt_model=None, *
             model = _construct_text_model(cfg_model, cfg_data, pretrained, **kwargs)
         else:
             raise ValueError(f"Invalid data modality {cfg_data.modality}")
-        # Save nametag for printouts later:
-        model.name = cfg_model
     else:
         model = VisionContainer(prebuilt_model)
+    # Save nametag for printouts later:
+    model.name = cfg_model
 
     # Choose loss function according to data and model:
     if "classification" in cfg_data.task:
