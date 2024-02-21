@@ -152,6 +152,8 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
                     token, channel = response
                     log.info("puttin")
                     channel.put(token, AttackProgress(current_iteration=iteration,
+                                                      current_restart=trial,
+                                                      max_restarts=self.cfg.restarts.num_trials,
                                                       max_iterations=self.cfg.optim.max_iterations))
         except KeyboardInterrupt:
             print(f"Recovery interrupted manually in iteration {iteration}!")

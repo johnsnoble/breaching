@@ -90,14 +90,23 @@ def get_metrics(reconstructed_user_data, true_user_data, server_payload, server,
     stats = AttackStatistics(MSE=metrics.get('mse', 0), SSIM=0, PSNR=metrics.get('psnr', 0))
     token, channel = response
 
-    image_data = None
     with open("./reconstructed_data.png", 'rb') as image_file:
-        image_data = image_file.read()
-    base64_encoded_data = base64.b64encode(image_data).decode('utf-8')
+        image_data_rec = image_file.read()
+    base64_reconstructed = base64.b64encode(image_data_rec).decode('utf-8')
+    
+    with open("./true_data.png", 'rb') as image_file:
+        image_data_true = image_file.read()
+    base64_true = base64.b64encode(image_data_true).decode('utf-8')
 
     iterations = cfg.attack.optim.max_iterations
-    channel.put(token, AttackProgress(current_iteration=iterations, max_iterations=iterations,
-                                      statistics=stats, reconstructed_image=base64_encoded_data))
+    restarts = cfg.attack.restarts.num_trials
+    channel.put(token, AttackProgress(current_iteration=iterations, 
+                                      current_restart=restarts,
+                                      max_iterations=iterations,
+                                      max_restarts=restarts,
+                                      statistics=stats, 
+                                      true_image=base64_true,
+                                      reconstructed_image=base64_reconstructed))
     return metrics
     
 def check_image_size(model, shape):
