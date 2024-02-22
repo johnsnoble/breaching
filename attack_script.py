@@ -35,15 +35,29 @@ def construct_cfg(attack_params: AttackParameters):
         case 'deepleakage':
             cfg = breaching.get_config(overrides=["attack=deepleakage", "case.model=ConvNet"])
             cfg.case.data.partition="unique-class"
-            cfg.case.user.provide_labels=False 
+            cfg.case.user.provide_labels=False
+        case 'modern':
+            cfg = breaching.get_config(overrides=["attack=modern"])
+            cfg.case.data.partition="unique-class"
+            cfg.attack.regularization.deep_inversion.scale=1e-4
+        case 'fishing_for_user_data':
+            cfg = breaching.get_config(overrides=["case/server=malicious-fishing", "attack=clsattack", "case/user=multiuser_aggregate"])
+            cfg.case.user.user_range = [0, 1]
+            cfg.case.data.partition = "random" # This is the average case
+            cfg.case.user.num_data_points = 256
+            cfg.case.data.default_clients = 32
+            cfg.case.user.provide_labels = True # Mostly out of convenience
+            cfg.case.server.target_cls_idx = 0 # Which class to attack?
+           
             
     #setup all customisable parameters
     if attack_params != None:
         if cfg.case.model != attack_params.model:
-            raise TypeError(f"model for given attack does not match. 
+            err_msg = f"model for given attack does not match. 
                             Requested model {attack_params.model}. 
                             Attack model {cfg.case.model}. 
-                            Attack {attack_params.attack}")
+                            Attack {attack_params.attack}"
+            raise TypeError(err_msg)
         # cfg.case.model = attack_params.model
         if attack_params.datasetStructure == "CSV":
             cfg.case.data.name = "CustomCsv"
