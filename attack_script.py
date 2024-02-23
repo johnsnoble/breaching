@@ -10,14 +10,117 @@ AttackStatistics = breaching.attacks.attack_info.AttackStatistics
 AttackProgress = breaching.attacks.attack_info.AttackProgress
 AttackParameters = breaching.attacks.attack_info.AttackParameters
 
-def construct_cfg(attack_params: AttackParameters):
-    cfg = None
+def construct_cfg(attack_params: AttackParameters, dataset_path=None):
+    match attack_params.data_type:
+        case "images":
+            cfg = construct_images_cfg(attack_params)
+        case "text":
+            cfg = construct_text_cfg(attack_params)
+        case _:
+            raise TypeError(f"Data type of attack: {attack_params.data_type} does not match anything.")
+         
+    assert(attack_params is not None)
     
+    #setup all customisable parameters
+    cfg.case.model = attack_params.model
+
+    cfg.case.data.size = attack_params.datasetSize
+    cfg.case.data.classes = attack_params.numClasses
+    match attack_params.datasetStructure:
+        case "CSV":
+            cfg.case.data.name = "CustomCsv"
+        case "Foldered":
+            cfg.case.data.name = "CustomFolders"
+        case _:
+            print("Could not match dataset structure")
+            match attack_params.data_type:
+                case "images":
+                    cfg.case.data = breaching.get_config(overrides=["case/data=CIFAR10"]).case.data
+                    print("defaulted to CIFAR10")
+                case "text":
+                    cfg.case.data = breaching.get_config(overrides=["case/data=wikitext"]).case.data
+                    print("defaulted to wikitext")
+                case _:
+                    raise TypeError(f"Data type of attack: {attack_params.data_type} does not match anything.")
+       
+    match dataset_path:
+        case None:
+            cfg.case.data.path = 'dataset'
+        case _:
+            cfg.case.data.path = dataset_path
+
+    cfg.case.data.batch_size = attack_params.batchSize
+    cfg.attack.optim.step_size = attack_params.stepSize
+    cfg.attack.optim.max_iterations = attack_params.maxIterations
+    cfg.attack.optim.callback = attack_params.callbackInterval
+    cfg.case.user.user_idx = attack_params.user_idx
+    cfg.case.data.default_clients = attack_params.number_of_clients
+    cfg.attack.restarts.num_trials = attack_params.numRestarts
+        
+    return cfg
+    
+def construct_text_cfg(attack_params: AttackParameters):
+    match attack_params.attack:
+        case 'TAG':
+            cfg = breaching.get_config(overrides=["attack=tag"])
+        case _:
+            raise TypeError(f'No text attack match; {attack_params.attack}')
+
+    match attack_params.model:
+        case "bert":
+            cfg.case.model="bert-base-uncased"
+        case "gpt2":
+            cfg.case.model="gpt2"
+        case "transformer3":
+            cfg.case.model="transformer3"
+        case _:
+            try:
+                assert(attack_params.model in {
+                    # ... list of all supported models
+                })
+                cfg.case.model=attack_params.model
+            except AssertionError as a:
+                raise TypeError(f"no model match for text: {attack_params.model}")
+    
+    match attack_params.tokenizer:
+        case "bert":
+            cfg.case.data.tokenizer="bert-base-uncased"
+            cfg.case.data.task= "masked-lm"
+            cfg.case.data.vocab_size= 30522
+            cfg.case.data.mlm_probability= 0.15
+        case "gpt2":
+            cfg.case.model="gpt2"
+            cfg.case.data.task= "causal-lm"
+            cfg.case.data.vocab_size= 50257
+        case "transformer3":
+            cfg.case.model="transformer3"
+        case _:
+            raise TypeError(f"no model match for tokenizer: {attack_params.model}")
+            
+    
+    cfg.case.data.shape = attack_params.shape
+
+
+
+def construct_images_cfg(attack_params: AttackParameters):
     match attack_params.attack:
         case 'invertinggradients':
             cfg = breaching.get_config()
             cfg.case.data.partition="unique-class"
             # default case.model=ResNet18
+        case 'modern':
+            cfg = breaching.get_config(overrides=["attack=modern"])
+            cfg.case.data.partition="unique-class"
+            cfg.attack.regularization.deep_inversion.scale=1e-4
+        case 'fishing_for_user_data':
+            cfg = breaching.get_config(overrides=["case/server=malicious-fishing", "attack=clsattack", "case/user=multiuser_aggregate"])
+            cfg.case.user.user_range = [0, 1]
+            cfg.case.data.partition = "random" # This is the average case
+            cfg.case.user.num_data_points = 256
+            cfg.case.data.default_clients = 32
+            cfg.case.user.provide_labels = True # Mostly out of convenience
+            cfg.case.server.target_cls_idx = 0 # Which class to attack?
+        # Less important attacks
         case 'analytic':
             cfg = breaching.get_config(overrides=["attack=analytic", "case.model=linear"])
             cfg.case.data.partition="balanced"
@@ -36,46 +139,8 @@ def construct_cfg(attack_params: AttackParameters):
             cfg = breaching.get_config(overrides=["attack=deepleakage", "case.model=ConvNet"])
             cfg.case.data.partition="unique-class"
             cfg.case.user.provide_labels=False
-        case 'modern':
-            cfg = breaching.get_config(overrides=["attack=modern"])
-            cfg.case.data.partition="unique-class"
-            cfg.attack.regularization.deep_inversion.scale=1e-4
-        case 'fishing_for_user_data':
-            cfg = breaching.get_config(overrides=["case/server=malicious-fishing", "attack=clsattack", "case/user=multiuser_aggregate"])
-            cfg.case.user.user_range = [0, 1]
-            cfg.case.data.partition = "random" # This is the average case
-            cfg.case.user.num_data_points = 256
-            cfg.case.data.default_clients = 32
-            cfg.case.user.provide_labels = True # Mostly out of convenience
-            cfg.case.server.target_cls_idx = 0 # Which class to attack?
-           
-            
-    #setup all customisable parameters
-    if attack_params != None:
-        if cfg.case.model != attack_params.model:
-            err_msg = f"model for given attack does not match. 
-                            Requested model {attack_params.model}. 
-                            Attack model {cfg.case.model}. 
-                            Attack {attack_params.attack}"
-            raise TypeError(err_msg)
-        # cfg.case.model = attack_params.model
-        if attack_params.datasetStructure == "CSV":
-            cfg.case.data.name = "CustomCsv"
-        elif attack_params.datasetStructure == "Foldered":
-            cfg.case.data.name = "CustomFolders"
-        else:
-            cfg = breaching.get_config(overrides = ["case/data=CIFAR10"])
-        cfg.case.data.path = 'dataset'
-        cfg.case.data.size = attack_params.datasetSize
-        cfg.case.data.classes = attack_params.numClasses
-        cfg.case.data.batch_size = attack_params.batchSize
-        cfg.attack.restarts.num_trials = attack_params.numRestarts
-        cfg.attack.optim.step_size = attack_params.stepSize
-        cfg.attack.optim.max_iterations = attack_params.maxIterations
-        cfg.attack.optim.callback = attack_params.callbackInterval
-        
+
     return cfg
-            
 
 def setup_attack(attack_params:AttackParameters=None, cfg=None, torch_model=None):
     
