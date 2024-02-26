@@ -49,7 +49,8 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
             label_candidate = self._initialize_data([num_data_points, self.data_shape[0], metadata.vocab_size])
         return label_candidate
 
-    def reconstruct(self, server_payload, shared_data, server_secrets=None, initial_data=None, dryrun=False, response=None):
+    def reconstruct(self, server_payload, shared_data, server_secrets=None, initial_data=None, 
+                    dryrun=False,  token=None, add_response_to_channel=None):
         # Initialize stats module for later usage:
         rec_models, labels, stats = self.prepare_attack(server_payload, shared_data)
         if shared_data[0]["metadata"]["labels"] is not None:
@@ -63,7 +64,7 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
         candidate_solutions, candidate_labels = [], []
         try:
             for trial in range(self.cfg.restarts.num_trials):
-                data, label = self._run_trial(rec_models, shared_data, labels, stats, trial, initial_data, dryrun, response)
+                data, label = self._run_trial(rec_models, shared_data, labels, stats, trial, initial_data, dryrun, token, add_response_to_channel)
                 candidate_solutions += [data]
                 candidate_labels += [labels.argmax(dim=-1)]
                 scores[trial] = self._score_trial(
@@ -87,7 +88,8 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
             reconstructed_data["labels"] = server_secrets["ClassAttack"]["all_labels"]
         return reconstructed_data, stats
 
-    def _run_trial(self, rec_model, shared_data, label_template, stats, trial, initial_data=None, dryrun=False, response=None):
+    def _run_trial(self, rec_model, shared_data, label_template, stats, trial, initial_data=None, 
+                   dryrun=False, token=None, add_response_to_channel=None):
         """Run a single reconstruction trial."""
 
         # Initialize losses:
@@ -148,13 +150,13 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
 
                 if dryrun:
                     break
-                if response != None:
-                    token, channel = response
-                    log.info("puttin")
-                    channel.put(token, AttackProgress(current_iteration=iteration,
-                                                      current_restart=trial,
-                                                      max_restarts=self.cfg.restarts.num_trials,
-                                                      max_iterations=self.cfg.optim.max_iterations))
+                if add_response_to_channel != None:
+                    progress = AttackProgress(current_iteration=iteration,
+                                              current_restart=trial,
+                                              max_restarts=self.cfg.restarts.num_trials,
+                                              max_iterations=self.cfg.optim.max_iterations)
+                    add_response_to_channel(token, progress)
+                    
         except KeyboardInterrupt:
             print(f"Recovery interrupted manually in iteration {iteration}!")
             pass
