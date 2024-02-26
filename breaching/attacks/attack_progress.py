@@ -1,3 +1,5 @@
+from pydantic import BaseModel
+
 class AttackProgress(BaseModel):
     message_type: str = "AttackProgress"
     current_iteration: int = 0
