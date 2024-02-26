@@ -15,7 +15,7 @@ from .base_attack import _BaseAttacker
 from .auxiliaries.regularizers import regularizer_lookup, TotalVariation
 from .auxiliaries.objectives import Euclidean, CosineSimilarity, objective_lookup
 from .auxiliaries.augmentations import augmentation_lookup
-from .attack_info import AttackProgress
+from .attack_progress import AttackProgress
 
 import logging
 
@@ -223,3 +223,4 @@ class OptimizationBasedAttacker(_BaseAttacker):
         else:
             log.info("No valid reconstruction could be found.")
             return torch.zeros_like(optimal_solution)
+

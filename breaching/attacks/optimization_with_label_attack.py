@@ -12,7 +12,7 @@ import time
 from .optimization_based_attack import OptimizationBasedAttacker
 from .auxiliaries.regularizers import TotalVariation
 from .auxiliaries.objectives import Euclidean, CosineSimilarity
-from .attack_info import AttackProgress
+from .attack_progress import AttackProgress
 
 import logging
 
