@@ -11,13 +11,13 @@ AttackProgress = breaching.attacks.attack_info.AttackProgress
 AttackParameters = breaching.attacks.attack_info.AttackParameters
 
 def construct_cfg(attack_params: AttackParameters, dataset_path=None):
-    match attack_params.data_type:
+    match attack_params.modality:
         case "images":
             cfg = construct_images_cfg(attack_params)
         case "text":
             cfg = construct_text_cfg(attack_params)
         case _:
-            raise TypeError(f"Data type of attack: {attack_params.data_type} does not match anything.")
+            raise TypeError(f"Data type of attack: {attack_params.modality} does not match anything.")
          
     assert(attack_params is not None)
     

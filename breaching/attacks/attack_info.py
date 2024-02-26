@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 class AttackParameters(BaseModel):
+    modality: str
     model: str
     attack: str = "invertinggradients"
     datasetStructure: str
