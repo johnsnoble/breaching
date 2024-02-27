@@ -14,9 +14,9 @@ channels:
   - huggingface
   - defaults
 dependencies:
-  - python=3.9
+  - python=3.11
   - cudatoolkit=11.3
-  - pytorch=1.10.1
+  - pytorch
   - torchvision
   - notebook
   - jupyter
