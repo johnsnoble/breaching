@@ -36,7 +36,7 @@ partition: balanced # used for synthetic splits. Current options for synthetic s
 examples_from_split: validation
 
 # Data-specific implementation constants:
-batch_size: 1
+batch_size: 128
 caching: False
 defaults:
   - db: none # Database Setup # use the cmd-line to activate the LMDB module with data.db=LMDB
