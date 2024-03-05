@@ -22,12 +22,75 @@ import logging
 log = logging.getLogger(__name__)
 
 
+class AttackUpdater:
+    def __init__(self, attacker, post_fn, token: str, reconstruction_frequency: int, server_payload, server_secrets):
+        self.attacker = attacker
+        
+        self.post_fn = post_fn
+        self.token = token
+        self.reconstruction_frequency = reconstruction_frequency
+        
+        self.last_best_candidate = None
+        self.best_reconstruction = None
+        self.last_reconstruction_iter = None
+        
+        self.server_payload = server_payload
+        self.server_secrets = server_secrets
+        
+    def post_iteration(self, candidate, current_iteration, current_restart, max_restarts, max_iterations, labels, rec_models, shared_data, stats):
+        reconstruction = None
+        
+        if(self.last_reconstruction_iter == None or current_iteration - self.last_reconstruction_iter >= self.reconstruction_frequency):
+            
+            print(self.last_reconstruction_iter, current_iteration)
+            self.last_reconstruction_iter = current_iteration
+            
+            if self.last_best_candidate != None:
+                candidates = [candidate, self.last_best_candidate]
+                scores = torch.zeros(len(candidates))
+                for idx, c in enumerate(candidates):
+                    scores[idx] = self.attacker._score_trial(c, labels, rec_models, shared_data)
+                
+                optimal_candidate = self.attacker._select_optimal_reconstruction(candidates, scores, stats)
+                if not torch.is_tensor(candidate) or optimal_candidate.eq(torch.zeros_like(optimal_candidate)).all().item() == 1:
+                    self.last_best_candidate = candidate
+                self.last_best_candidate = optimal_candidate
+            else:
+                self.last_best_candidate = candidate
+                
+            reconstructed_data = dict(data=self.last_best_candidate, labels=labels)
+            if self.server_payload[0]["metadata"].modality == "text":
+                reconstructed_data = self.attacker._postprocess_text_data(reconstructed_data)
+            if "ClassAttack" in self.server_secrets:
+                # Only a subset of images was actually reconstructed:
+                true_num_data = self.server_secrets["ClassAttack"]["true_num_data"]
+                reconstructed_data["data"] = torch.zeros([true_num_data, *self.attacker.data_shape], **self.attacker.setup)
+                reconstructed_data["data"][self.server_secrets["ClassAttack"]["target_indx"]] = self.last_best_candidate
+                reconstructed_data["labels"] = self.server_secrets["ClassAttack"]["all_labels"]
+            
+            self.best_reconstruction = reconstructed_data
+            reconstruction = self.best_reconstruction
+        
+        progress = AttackProgress(
+            current_iteration=current_iteration,
+            current_restart=current_restart,
+            max_restarts=max_restarts,
+            max_iterations=max_iterations,
+            reconstructed_image=reconstruction
+        )
+        
+        self.post_fn(self.token, progress)
+
+
 class OptimizationBasedAttacker(_BaseAttacker):
     """Implements a wide spectrum of optimization-based attacks."""
 
     def __init__(self, model, loss_fn, cfg_attack, setup=dict(dtype=torch.float, device=torch.device("cpu"))):
         super().__init__(model, loss_fn, cfg_attack, setup)
         objective_fn = objective_lookup.get(self.cfg.objective.type)
+        
+        self._attack_updater = None 
+        
         if objective_fn is None:
             raise ValueError(f"Unknown objective type {self.cfg.objective.type} given.")
         else:
@@ -62,11 +125,20 @@ class OptimizationBasedAttacker(_BaseAttacker):
         """
 
     def reconstruct(self, server_payload, shared_data, server_secrets=None, initial_data=None, 
-                    dryrun=False, token=None, add_response_to_channel=None):
+                    dryrun=False, token=None, add_response_to_channel=None, reconstruction_frequency=10):
+        """
+        The reconstruction_frequency is how often to pass reconstructed
+        images as temporary files to the add_response_to_channel function
+        - The parameter itself is the interval (in number of iterations) between reconstructions
+        """
         # Initialize stats module for later usage:
         rec_models, labels, stats = self.prepare_attack(server_payload, shared_data)
         # Main reconstruction loop starts here:
         scores = torch.zeros(self.cfg.restarts.num_trials)
+        
+        # (re)set the cache for each attack
+        self._attack_updater = AttackUpdater(self, add_response_to_channel, token, reconstruction_frequency, server_payload, server_secrets)
+        
         candidate_solutions = []
         try:
             for trial in range(self.cfg.restarts.num_trials):
@@ -89,13 +161,13 @@ class OptimizationBasedAttacker(_BaseAttacker):
             reconstructed_data["labels"] = server_secrets["ClassAttack"]["all_labels"]
         return reconstructed_data, stats
 
-    def _run_trial(self, rec_model, shared_data, labels, stats, trial, initial_data=None, 
+    def _run_trial(self, rec_models, shared_data, labels, stats, trial, initial_data=None, 
                    dryrun=False, token=None, add_response_to_channel=None):
         """Run a single reconstruction trial."""
 
         # Initialize losses:
         for regularizer in self.regularizers:
-            regularizer.initialize(rec_model, shared_data, labels)
+            regularizer.initialize(rec_models, shared_data, labels)
         self.objective.initialize(self.loss_fn, self.cfg.impl, shared_data[0]["metadata"]["local_hyperparams"])
 
         # Initialize candidate reconstruction data
@@ -111,7 +183,7 @@ class OptimizationBasedAttacker(_BaseAttacker):
         current_wallclock = time.time()
         try:
             for iteration in range(self.cfg.optim.max_iterations):
-                closure = self._compute_objective(candidate, labels, rec_model, optimizer, shared_data, iteration)
+                closure = self._compute_objective(candidate, labels, rec_models, optimizer, shared_data, iteration)
                 objective_value, task_loss = optimizer.step(closure), self.current_task_loss
                 scheduler.step()
 
@@ -140,11 +212,17 @@ class OptimizationBasedAttacker(_BaseAttacker):
                 if dryrun:
                     break
                 if add_response_to_channel != None:
-                    progress = AttackProgress(current_iteration=iteration,
-                                              current_restart=trial,
-                                              max_restarts=self.cfg.restarts.num_trials,
-                                              max_iterations=self.cfg.optim.max_iterations)
-                    add_response_to_channel(token, progress)
+                    self._attack_updater.post_iteration(
+                        candidate=best_candidate,
+                        current_iteration=iteration,
+                        current_restart=trial,
+                        max_restarts=self.cfg.restarts.num_trials,
+                        max_iterations=self.cfg.optim.max_iterations,
+                        labels=labels,
+                        rec_models=rec_models,
+                        shared_data=shared_data,
+                        stats=stats
+                    )
                     
         except KeyboardInterrupt:
             print(f"Recovery interrupted manually in iteration {iteration}!")

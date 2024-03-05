@@ -9,7 +9,7 @@ In some cases turning this on can stabilize an L-BFGS optimizer.
 import torch
 import time
 
-from .optimization_based_attack import OptimizationBasedAttacker
+from .optimization_based_attack import OptimizationBasedAttacker, AttackUpdater
 from .auxiliaries.regularizers import TotalVariation
 from .auxiliaries.objectives import Euclidean, CosineSimilarity
 from .attack_progress import AttackProgress
@@ -50,7 +50,12 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
         return label_candidate
 
     def reconstruct(self, server_payload, shared_data, server_secrets=None, initial_data=None, 
-                    dryrun=False,  token=None, add_response_to_channel=None):
+                    dryrun=False,  token=None, add_response_to_channel=None, reconstruction_frequency=10):
+        """
+        The reconstruction_frequency is how often to pass reconstructed
+        images as temporary files to the add_response_to_channel function
+        - The parameter itself is the interval (in number of iterations) between reconstructions
+        """
         # Initialize stats module for later usage:
         rec_models, labels, stats = self.prepare_attack(server_payload, shared_data)
         if shared_data[0]["metadata"]["labels"] is not None:
@@ -61,6 +66,10 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
 
         # Main reconstruction loop starts here:
         scores = torch.zeros(self.cfg.restarts.num_trials)
+        
+        # (re)set the cache for each attack
+        self._attack_updater = AttackUpdater(self, add_response_to_channel, token, reconstruction_frequency, server_payload, server_secrets)
+        
         candidate_solutions, candidate_labels = [], []
         try:
             for trial in range(self.cfg.restarts.num_trials):
@@ -88,13 +97,13 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
             reconstructed_data["labels"] = server_secrets["ClassAttack"]["all_labels"]
         return reconstructed_data, stats
 
-    def _run_trial(self, rec_model, shared_data, label_template, stats, trial, initial_data=None, 
+    def _run_trial(self, rec_models, shared_data, label_template, stats, trial, initial_data=None, 
                    dryrun=False, token=None, add_response_to_channel=None):
         """Run a single reconstruction trial."""
 
         # Initialize losses:
         for regularizer in self.regularizers:
-            regularizer.initialize(rec_model, shared_data, labels)
+            regularizer.initialize(rec_models, shared_data, label_template)
         self.objective.initialize(self.loss_fn, self.cfg.impl, shared_data[0]["metadata"]["local_hyperparams"])
 
         # Initialize candidate reconstruction data
@@ -113,7 +122,7 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
         try:
             for iteration in range(self.cfg.optim.max_iterations):
                 closure = self._compute_objective(
-                    candidate_data, candidate_labels, rec_model, optimizer, shared_data, iteration
+                    candidate_data, candidate_labels, rec_models, optimizer, shared_data, iteration
                 )
                 objective_value, task_loss = optimizer.step(closure), self.current_task_loss
                 scheduler.step()
@@ -151,11 +160,17 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
                 if dryrun:
                     break
                 if add_response_to_channel != None:
-                    progress = AttackProgress(current_iteration=iteration,
-                                              current_restart=trial,
-                                              max_restarts=self.cfg.restarts.num_trials,
-                                              max_iterations=self.cfg.optim.max_iterations)
-                    add_response_to_channel(token, progress)
+                    self._attack_updater.post_iteration(
+                        candidate=best_candidate,
+                        current_iteration=iteration,
+                        current_restart=trial,
+                        max_restarts=self.cfg.restarts.num_trials,
+                        max_iterations=self.cfg.optim.max_iterations,
+                        labels=label_template,
+                        rec_models=rec_models,
+                        shared_data=shared_data,
+                        stats=stats
+                    )
                     
         except KeyboardInterrupt:
             print(f"Recovery interrupted manually in iteration {iteration}!")
