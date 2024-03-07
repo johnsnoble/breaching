@@ -286,28 +286,37 @@ class UserSingleStep(torch.nn.Module):
         else:
             data.mul_(ds).add_(dm).clamp_(0, 1)
         data = data.to(dtype=torch.float32)
-
-        if data.shape[0] == 1:
+        
+        for i in range(data.shape[0]):
             plt.axis("off")
-            plt.imshow(data[0].permute(1, 2, 0).cpu())
-            if print_labels:
-                plt.title(f"Data with label {classes[labels]}")
-        else:
-            grid_shape = int(torch.as_tensor(data.shape[0]).sqrt().ceil())
-            s = 24 if data.shape[3] > 150 else 6
-            fig, axes = plt.subplots(grid_shape, grid_shape, figsize=(s, s))
-            label_classes = []
-            for i, (im, axis) in enumerate(zip(data, axes.flatten())):
-                axis.imshow(im.permute(1, 2, 0).cpu())
-                if labels is not None and print_labels:
-                    label_classes.append(classes[labels[i]])
-                axis.axis("off")
-            if print_labels:
-                print(label_classes)
-        if saveFile:
-            print(f"Saved to {saveFile}.png")
-            plt.savefig(f"{saveFile}.png", pad_inches=0.0, bbox_inches='tight')
-            return
+            plt.imshow(data[i].permute(1, 2, 0).cpu())
+            if saveFile:
+                if i == 0:
+                    plt.savefig(f"{saveFile}.png", pad_inches=0.0, bbox_inches='tight')
+                else:
+                    plt.savefig(f"{saveFile}_{i}.png", pad_inches=0.0, bbox_inches='tight')
+
+        # if data.shape[0] == 1:
+        #     plt.axis("off")
+        #     plt.imshow(data[0].permute(1, 2, 0).cpu())
+        #     if print_labels:
+        #         plt.title(f"Data with label {classes[labels]}")
+        # else:
+        #     grid_shape = int(torch.as_tensor(data.shape[0]).sqrt().ceil())
+        #     s = 24 if data.shape[3] > 150 else 6
+        #     fig, axes = plt.subplots(grid_shape, grid_shape, figsize=(s, s))
+        #     label_classes = []
+        #     for i, (im, axis) in enumerate(zip(data, axes.flatten())):
+        #         axis.imshow(im.permute(1, 2, 0).cpu())
+        #         if labels is not None and print_labels:
+        #             label_classes.append(classes[labels[i]])
+        #         axis.axis("off")
+        #     if print_labels:
+        #         print(label_classes)
+        # if saveFile:
+        #     print(f"Saved to {saveFile}.png")
+        #     plt.savefig(f"{saveFile}.png", pad_inches=0.0, bbox_inches='tight')
+        #     return
         
         plt.show()
 
