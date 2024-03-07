@@ -324,9 +324,10 @@ class UserSingleStep(torch.nn.Module):
                 
             plt.savefig(f"attack_images/{saveFile}.png", pad_inches=0.0, bbox_inches='tight')
             print(f"Saved to attack_images/{saveFile}.png")
-            return
         
         plt.show()
+        return
+        
 
 
 class UserMultiStep(UserSingleStep):
