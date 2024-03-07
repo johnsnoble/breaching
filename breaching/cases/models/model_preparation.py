@@ -23,11 +23,10 @@ def construct_model(cfg_model, cfg_data, pretrained=True, prebuilt_model=None, *
         else:
             raise ValueError(f"Invalid data modality {cfg_data.modality}")
     else:
-        match cfg_data.modality:
-            case "vision":
-                model = VisionContainer(prebuilt_model)
-            case "text":
-                model = HuggingFaceContainer(prebuilt_model)
+        if cfg_data.modality == "vision":
+            model = VisionContainer(prebuilt_model)
+        elif cfg_data.modality == "text":
+            model = HuggingFaceContainer(prebuilt_model)
     # Save nametag for printouts later:
     model.name = cfg_model
 
