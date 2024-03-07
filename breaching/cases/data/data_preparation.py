@@ -14,7 +14,7 @@ import warnings
 warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
 
 
-def construct_dataloader(cfg_data, cfg_impl, user_idx=0, return_full_dataset=False):
+def construct_dataloader(cfg_data, cfg_impl, user_idx=0, return_full_dataset=False, permutation_arr=None):
     """Return a dataloader with given dataset for the given user_idx.
 
     Use return_full_dataset=True to return the full dataset instead (for example for analysis).
@@ -23,7 +23,9 @@ def construct_dataloader(cfg_data, cfg_impl, user_idx=0, return_full_dataset=Fal
         from .datasets_vision import _build_dataset_vision, _split_dataset_vision
 
         dataset, collate_fn = _build_dataset_vision(cfg_data, split=cfg_data.examples_from_split, can_download=True)
-        dataset = _split_dataset_vision(dataset, cfg_data, user_idx, return_full_dataset)
+        if permutation_arr[0] is None:
+            permutation_arr[0] = torch.randperm(len(dataset))
+        dataset = _split_dataset_vision(dataset, cfg_data, user_idx, return_full_dataset, permutation=permutation_arr[0])
     elif cfg_data.modality == "text":
         from .datasets_text import _build_and_split_dataset_text
 

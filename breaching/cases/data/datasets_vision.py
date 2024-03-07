@@ -98,7 +98,7 @@ def _build_dataset_vision(cfg_data, split, can_download=True):
     return dataset, collate_fn
 
 
-def _split_dataset_vision(dataset, cfg_data, user_idx=None, return_full_dataset=False):
+def _split_dataset_vision(dataset, cfg_data, user_idx=None, return_full_dataset=False, permutation=None):
     if not return_full_dataset:
         if user_idx is None:
             user_idx = torch.randint(0, cfg_data.default_clients, (1,))
@@ -156,7 +156,8 @@ def _split_dataset_vision(dataset, cfg_data, user_idx=None, return_full_dataset=
             data_per_user = len(dataset) // cfg_data.default_clients
             generator = torch.Generator()
             generator.manual_seed(233)
-            data_ids = torch.randperm(len(dataset))[user_idx * data_per_user : data_per_user * (user_idx + 1)]
+            permutation = permutation if permutation is not None else torch.randperm(len(dataset))
+            data_ids = permutation[user_idx * data_per_user : data_per_user * (user_idx + 1)]
             dataset = Subset(dataset, data_ids)
         elif cfg_data.partition == "none":  # Replicate on all users for a sanity check!
             pass
