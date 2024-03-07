@@ -3,6 +3,8 @@
 import torch
 import copy
 from itertools import chain
+import os
+from torchvision.utils import save_image
 
 
 from .data import construct_dataloader
@@ -11,10 +13,10 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def construct_user(model, loss_fn, cfg_case, setup):
+def construct_user(model, loss_fn, cfg_case, setup, permutation_arr=None):
     """Interface function."""
     if cfg_case.user.user_type == "local_gradient":
-        dataloader = construct_dataloader(cfg_case.data, cfg_case.impl, user_idx=cfg_case.user.user_idx)
+        dataloader = construct_dataloader(cfg_case.data, cfg_case.impl, user_idx=cfg_case.user.user_idx, permutation_arr=permutation_arr)
         # The user will deepcopy this model template to have their own
         user = UserSingleStep(model, loss_fn, dataloader, setup, idx=cfg_case.user.user_idx, cfg_user=cfg_case.user)
     elif cfg_case.user.user_type == "local_update":
@@ -266,7 +268,7 @@ class UserSingleStep(torch.nn.Module):
                 print(bg_color(decoded_token + " ", token == gt_token), end="")
             print("\n")
 
-    def plot(self, user_data, scale=False, print_labels=False, saveFile=None):
+    def plot(self, user_data, scale=False, print_labels=False, saveFile=None, batch_num=None):
         """Plot user data to output. Probably best called from a jupyter notebook."""
         import matplotlib.pyplot as plt  # lazily import this here
 
@@ -286,7 +288,7 @@ class UserSingleStep(torch.nn.Module):
         else:
             data.mul_(ds).add_(dm).clamp_(0, 1)
         data = data.to(dtype=torch.float32)
-
+        
         if data.shape[0] == 1:
             plt.axis("off")
             plt.imshow(data[0].permute(1, 2, 0).cpu())
@@ -304,9 +306,24 @@ class UserSingleStep(torch.nn.Module):
                 axis.axis("off")
             if print_labels:
                 print(label_classes)
+                
         if saveFile:
-            print(f"Saved to {saveFile}.png")
-            plt.savefig(f"{saveFile}.png", pad_inches=0.0, bbox_inches='tight')
+            
+            save_dir = 'attack_images'
+            # check attack_images exists
+            if not os.path.exists(save_dir):
+                    os.mkdir(save_dir)
+                    
+            # # attempt to save images individually        
+            # if batch_num is not None: save_dir += f"_{batch_num}"
+            # # create batch num folder
+            # if not os.path.exists(save_dir):
+            #         os.mkdir(save_dir)
+            # for n, u in enumerate(data):
+            #     save_image(u, f"{save_dir}/{saveFile}_{n}.png")
+                
+            plt.savefig(f"attack_images/{saveFile}.png", pad_inches=0.0, bbox_inches='tight')
+            print(f"Saved to attack_images/{saveFile}.png")
             return
         
         plt.show()
