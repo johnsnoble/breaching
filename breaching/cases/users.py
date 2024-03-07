@@ -13,7 +13,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def construct_user(model, loss_fn, cfg_case, setup, permutation_arr=None):
+def construct_user(model, loss_fn, cfg_case, setup, permutation_arr=[None]):
     """Interface function."""
     if cfg_case.user.user_type == "local_gradient":
         dataloader = construct_dataloader(cfg_case.data, cfg_case.impl, user_idx=cfg_case.user.user_idx, permutation_arr=permutation_arr)
