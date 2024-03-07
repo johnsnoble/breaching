@@ -15,7 +15,7 @@ def construct_case(cfg_case,
                    setup=dict(dtype=torch.float, device=torch.device("cpu")), 
                    external_dataloader=None, 
                    prebuilt_model=None, 
-                   permutation_arr=None):
+                   permutation_arr=[None]):
     """This is a helper function that summarizes the startup, but I find the full protocol to often be clearer."""
     model, loss_fn = construct_model(cfg_case.model, cfg_case.data, pretrained=cfg_case.server.pretrained, prebuilt_model=prebuilt_model)
     # Server:
