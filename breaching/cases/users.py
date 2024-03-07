@@ -324,7 +324,7 @@ class UserSingleStep(torch.nn.Module):
 
             file_path = os.path.join(save_dir, f"{saveFile}.png")
             plt.savefig(file_path, pad_inches=0.0, bbox_inches='tight')
-            print(f"Saved to {file_path")
+            print(f"Saved to {file_path}")
         
         plt.show()
         return
