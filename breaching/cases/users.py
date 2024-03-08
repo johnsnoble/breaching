@@ -302,11 +302,12 @@ class UserSingleStep(torch.nn.Module):
                 plt.title(f"Data with label {classes[labels]}")
         else:
             grid_shape = int(torch.as_tensor(data.shape[0]).sqrt().ceil())
-            s = 24 if data.shape[3] > 150 else 6
+            s = 16 if data.shape[3] > 150 else 6
             fig, axes = plt.subplots(grid_shape, grid_shape, figsize=(s, s))
             label_classes = []
             for i, (im, axis) in enumerate(zip(data, axes.flatten())):
                 axis.imshow(im.permute(1, 2, 0).cpu())
+                plt.axis("off")
                 if labels is not None and print_labels:
                     label_classes.append(classes[labels[i]])
                 axis.axis("off")
@@ -329,7 +330,7 @@ class UserSingleStep(torch.nn.Module):
             #     save_image(u, f"{save_dir}/{saveFile}_{n}.png")
 
             file_path = os.path.join(save_dir, f"{saveFile}.png")
-            plt.savefig(file_path, pad_inches=0.0, bbox_inches='tight')
+            plt.savefig(file_path, pad_inches=0.0, bbox_inches='tight', transparent=True)
             print(f"Saved to {file_path}")
         
         plt.show()
