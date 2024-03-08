@@ -9,7 +9,7 @@ In some cases turning this on can stabilize an L-BFGS optimizer.
 import torch
 import time
 
-from .optimization_based_attack import OptimizationBasedAttacker, AttackUpdater
+from .optimization_based_attack import OptimizationBasedAttacker
 from .auxiliaries.regularizers import TotalVariation
 from .auxiliaries.objectives import Euclidean, CosineSimilarity
 from .attack_progress import AttackProgress
@@ -18,6 +18,70 @@ import logging
 
 log = logging.getLogger(__name__)
 
+
+class JointAttackUpdater:
+    def __init__(self, attacker, post_fn, token: str, reconstruction_frequency: int, server_payload, server_secrets):
+        self.attacker = attacker
+        
+        self.post_fn = post_fn
+        self.token = token
+        self.reconstruction_frequency = reconstruction_frequency
+        
+        self.last_best_candidate_and_label = None # tuple of (candidate, labels)
+        self.best_reconstruction = None
+        self.last_reconstruction_iter = None
+        
+        self.server_payload = server_payload
+        self.server_secrets = server_secrets
+        
+    def post_iteration(self, candidate, current_iteration, current_restart, max_restarts, max_iterations, labels, rec_models, shared_data, stats):
+        reconstruction = None
+        
+        # if(self.last_reconstruction_iter == None or current_iteration - self.last_reconstruction_iter >= self.reconstruction_frequency):
+            
+        #     print(self.last_reconstruction_iter, current_iteration)
+        #     self.last_reconstruction_iter = current_iteration
+            
+        #     if self.last_best_candidate_and_label != None:
+        #         last_best_candidate, last_best_labels = self.last_best_candidate_and_label
+                
+        #         all_labels = [labels.argmax(dim=-1), last_best_labels]
+        #         candidates = [candidate, last_best_candidate]
+        #         scores = torch.zeros(len(candidates))
+        #         for idx, (c, l) in enumerate(zip(candidates, all_labels)):
+        #             scores[idx] = self.attacker._score_trial(c, l, rec_models, shared_data)
+                
+        #         optimal_candidate, optimal_labels = self.attacker._select_optimal_reconstruction(candidates, labels, scores, stats)
+                
+        #         if not torch.is_tensor(candidate) or optimal_candidate.eq(torch.zeros_like(optimal_candidate)).all().item() == 1:
+        #             self.last_best_candidate_and_label = (candidate, labels)
+        #         self.last_best_candidate_and_label = (optimal_candidate, optimal_labels)
+        #     else:
+        #         self.last_best_candidate_and_label = (candidate, labels)
+                
+        #     last_best_candidate, last_best_labels = self.last_best_candidate_and_label
+        #     reconstructed_data = dict(data=last_best_candidate, labels=last_best_labels)
+        #     if self.server_payload[0]["metadata"].modality == "text":
+        #         reconstructed_data = self.attacker._postprocess_text_data(reconstructed_data)
+        #     if "ClassAttack" in self.server_secrets:
+        #         # Only a subset of images was actually reconstructed:
+        #         true_num_data = self.server_secrets["ClassAttack"]["true_num_data"]
+        #         reconstructed_data["data"] = torch.zeros([true_num_data, *self.attacker.data_shape], **self.attacker.setup)
+        #         reconstructed_data["data"][self.server_secrets["ClassAttack"]["target_indx"]] = self.last_best_candidate_and_label[0]
+        #         reconstructed_data["labels"] = self.server_secrets["ClassAttack"]["all_labels"]
+            
+        #     self.best_reconstruction = reconstructed_data
+        #     reconstruction = self.best_reconstruction
+        
+        progress = AttackProgress(
+            current_iteration=current_iteration,
+            current_restart=current_restart,
+            max_restarts=max_restarts,
+            max_iterations=max_iterations,
+            # reconstructed_image=reconstruction
+        )
+        
+        self.post_fn(self.token, progress)
 
 class CandidateDict(dict):
     """Container for a candidate solution. Behaves like a torch.Tensor?"""
@@ -68,7 +132,7 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
         scores = torch.zeros(self.cfg.restarts.num_trials)
         
         # (re)set the cache for each attack
-        self._attack_updater = AttackUpdater(self, add_response_to_channel, token, reconstruction_frequency, server_payload, server_secrets)
+        self._attack_updater = JointAttackUpdater(self, add_response_to_channel, token, reconstruction_frequency, server_payload, server_secrets)
         
         candidate_solutions, candidate_labels = [], []
         try:
@@ -162,14 +226,14 @@ class OptimizationJointAttacker(OptimizationBasedAttacker):
                 if add_response_to_channel != None:
                     self._attack_updater.post_iteration(
                         candidate=best_candidate,
+                        labels=best_labels,
                         current_iteration=iteration,
                         current_restart=trial,
                         max_restarts=self.cfg.restarts.num_trials,
                         max_iterations=self.cfg.optim.max_iterations,
-                        labels=label_template,
                         rec_models=rec_models,
                         shared_data=shared_data,
-                        stats=stats
+                        stats=stats,
                     )
                     
         except KeyboardInterrupt:
