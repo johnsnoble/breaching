@@ -229,6 +229,12 @@ class UserSingleStep(torch.nn.Module):
         self.data_key = "input_ids" if "input_ids" in data.keys() else "inputs"
         return data
 
+    def decode_text(self, user_data, **kwargs):
+        """Decode user data and return."""
+        tokenizer = self.dataloader.dataset.tokenizer
+        decoded_tokens = tokenizer.batch_decode(user_data["data"], clean_up_tokenization_spaces=True)
+        return '\n'.join(decoded_tokens)
+
     def print(self, user_data, **kwargs):
         """Print decoded user data to output."""
         tokenizer = self.dataloader.dataset.tokenizer

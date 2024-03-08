@@ -17,6 +17,11 @@ import datetime
 import hydra
 from omegaconf import OmegaConf, open_dict
 
+np.object = object
+np.int = int  
+np.bool = bool
+np.typeDict = np.sctypeDict
+
 import logging
 
 
